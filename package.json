@@ -1,0 +1,29 @@
+{
+  "name": "now_then_scripts",
+  "version": "1.0.0",
+  "description": "quick workaround scripts",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DynamiteC/now_then_scripts.git"
+  },
+  "keywords": [
+    "woocommerce",
+    "rest",
+    "apis"
+  ],
+  "author": "shethshails@gmail.com",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/DynamiteC/now_then_scripts/issues"
+  },
+  "homepage": "https://github.com/DynamiteC/now_then_scripts#readme",
+  "dependencies": {
+    "@woocommerce/woocommerce-rest-api": "^1.0.1",
+    "dotenv": "^8.2.0",
+    "request": "^2.88.2"
+  }
+}
