@@ -63,6 +63,14 @@ let deleteAndAddProductsAttributes = async () => {
   await addLiliEnglishAttributes();
 }
 
+let deleteAndAddProducts = async () => {
+  console.log('deleteAndAddProducts');
+  await deleteLiliHebrewProducts();
+  await deleteLiliEnglishProducts();
+  // await addLiliHebrewProducts();
+  // await addLiliEnglishProducts();
+}
+
 let deleteLiliHebrewCategories = async () => {
   console.log('deleteLiliHebrewCategories');
   return await deleteLiliCategories('HEB');
@@ -103,6 +111,26 @@ let addLiliEnglishAttributes = async () => {
   return await addLiliAttributes('en', 'ENG');
 }
 
+let deleteLiliHebrewProducts = async () => {
+  console.log('deleteLiliHebrewProducts');
+  return await deleteLiliProducts('HEB');
+}
+
+let deleteLiliEnglishProducts = async () => {
+  console.log('deleteLiliEnglishProducts');
+  return await deleteLiliProducts('ENG');
+}
+
+let addLiliHebrewProducts = async () => {
+  console.log('addLiliHebrewProducts');
+  return await addLiliProducts('he', 'HEB');
+}
+
+let addLiliEnglishProducts = async () => {
+  console.log('addLiliEnglishProducts');
+  return await addLiliProducts('en', 'ENG');
+}
+
 let deleteLiliCategories = async (wooSite) => {
   console.log('deleteLiliCategories');
   return new Promise(async resolve => {
@@ -113,22 +141,19 @@ let deleteLiliCategories = async (wooSite) => {
       if (categoryResponse.length === 0) {
         break;
       }
-      console.log(categoryResponse[0]);
       categoryResponse = categoryResponse.filter(d => d.name !== 'Uncategorized');
       categoryIds = [...categoryIds, ...categoryResponse.map(d => d.id)];
       page = page + 1;
     } while (true);
     categoryIds = categoryIds.sort((a, b) => b - a);
-    console.log(categoryIds);
-    console.log(categoryIds.length);
     for (let x = 0; x < categoryIds.length; x++) {
       try {
-        let deletedCategory = await makePromiseCalls(wooSite, 'delete', 'products/categories/' + categoryIds[x], {force: true});
-        console.log(deletedCategory);
+        await makePromiseCalls(wooSite, 'delete', 'products/categories/' + categoryIds[x], {force: true});
       } catch (error) {
         console.error(error);
       }
     }
+    console.log("COMPLETED....DELETE LILI CATEGORIES");
     resolve();
   });
 }
@@ -141,12 +166,37 @@ let deleteLiliAttributes = async (wooSite) => {
     attributeIds = [...attributeIds, ...attributeResponse.map(d => d.id)];
     for (let x = 0; x < attributeIds.length; x++) {
       try {
-        let deletedCategory = await makePromiseCalls(wooSite, 'delete', 'products/attributes/' + attributeIds[x], {force: true});
-        console.log(deletedCategory);
+        await makePromiseCalls(wooSite, 'delete', 'products/attributes/' + attributeIds[x], {force: true});
       } catch (error) {
         console.error(error);
       }
     }
+    console.log("COMPLETED....DELETE LILI ATTRIBUTES");
+    resolve();
+  });
+}
+
+let deleteLiliProducts = async (wooSite) => {
+  console.log('deleteLiliProducts');
+  return new Promise(async resolve => {
+    let page = 1;
+    let productIds = [];
+    do {
+      let productResponse = await makePromiseCalls(wooSite, 'get', 'products', {per_page: 100, page});
+      if (productResponse.length === 0) {
+        break;
+      }
+      productIds = [...productIds, ...productResponse.map(d => d.id)];
+      page = page + 1;
+    } while (true);
+    for (let x = 0; x < productIds.length; x++) {
+      try {
+        await makePromiseCalls(wooSite, 'delete', 'products/' + productIds[x], {force: true});
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    console.log("COMPLETED....DELETE LILI PRODUCTS")
     resolve();
   });
 }
@@ -195,6 +245,7 @@ let addLiliCategories = async (lang, wooSite) => {
         categoryIdObject[childIds[c][0]].current_parent = newCategory.id;
       }
     }
+    console.log("COMPLETED....ADDED LILI CATEGORIES");
     resolve();
   })
 }
@@ -204,7 +255,6 @@ let addLiliAttributes = async (lang, wooSite) => {
   return new Promise(async resolve => {
     let attributeResponse = await makePromiseCalls('OLD', 'get', 'products/attributes', {lang});
     for (let x = 0; x < attributeResponse.length; x++) {
-      console.log(attributeResponse[x]);
       let attributeObject = {
         name: attributeResponse[x].name,
         slug: attributeResponse[x].slug
@@ -222,21 +272,23 @@ let addLiliAttributes = async (lang, wooSite) => {
         page = page + 1;
       } while (true);
       let newAttribute = await makePromiseCalls(wooSite, 'post', 'products/attributes', attributeObject);
-      console.log(newAttribute);
       if (newAttribute.id) {
-        console.log(attributeTerms);
         for (let t = 0; t < attributeTerms.length; t++) {
-          let newAttributeTerm = await makePromiseCalls(wooSite, 'post', 'products/attributes/' + newAttribute.id + '/terms', {
+          await makePromiseCalls(wooSite, 'post', 'products/attributes/' + newAttribute.id + '/terms', {
             name: attributeTerms[t]
           });
-          console.log(newAttributeTerm);
         }
       }
     }
+    console.log("COMPLETED....ADDED LILI ATTRIBUTES")
     resolve();
   })
 }
 
-(async () => {
+let addLiliProducts = async (lang, wooSite) => {
+  console.log('addLiliProducts');
 
+}
+(async () => {
+  await deleteAndAddProducts();
 })();
