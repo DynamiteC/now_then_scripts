@@ -351,7 +351,7 @@ let addLiliProducts = async (lang, wooSite) => {
   await new Promise(async resolve => {
     let page = 1;
     do {
-      let productResponse = await makePromiseCalls('OLD', 'get', 'products', {per_page: 20, page, lang});
+      let productResponse = await makePromiseCalls('OLD', 'get', 'products', {per_page: 5, page, lang});
       if (productResponse.length === 0) {
         break;
       }
@@ -363,13 +363,14 @@ let addLiliProducts = async (lang, wooSite) => {
           name: prod.name,
           type: prod.type,
           status: prod.status,
-          regular_price: prod.regular_price,
+          regular_price: prod.regular_price || prod.price,
+          sale_price: prod.sale_price || prod.price,
           tax_status: prod.tax_status,
           tax_class: prod.tax_class,
           manage_stock: prod.manage_stock,
           stock_quantity: prod.stock_quantity,
           stock_status: prod.stock_status,
-          categories: productResponse[x].categories.map(d => {
+          categories: productResponse[x].categories.filter(d => categories[d.id] !== undefined).map(d => {
             return {
               id: categories[d.id].new_id
             }
@@ -378,7 +379,7 @@ let addLiliProducts = async (lang, wooSite) => {
             delete d.id;
             return d;
           }),
-          attributes: productResponse[x].attributes.map(d => {
+          attributes: productResponse[x].attributes.filter(d => attributes[d.id] !== undefined).map(d => {
             d.id = attributes[d.id].new_id;
             return d;
           })
@@ -428,5 +429,5 @@ let addLiliProducts = async (lang, wooSite) => {
   })
 }
 (async () => {
-  await deleteAndAddProducts();
+  // await deleteAndAddProducts();
 })();
