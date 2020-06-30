@@ -38,11 +38,14 @@ let makePromiseCalls = async (isFor, type, endpoint, options) => {
       apiCallMakerConfig = liliEnglishWooCommerceConfig;
     }
     apiCallMaker = new WooCommerceRestApi(apiCallMakerConfig);
-    let response = await new Promise((resolve, reject) => apiCallMaker[type](endpoint, options).then(response => resolve(response.data)).catch(error => reject(error.response.data)));
+    let response = await new Promise((resolve, reject) => apiCallMaker[type](endpoint, options).then(response => resolve(response.data)).catch(
+      error => reject((error.response !== undefined) ? error.response.data : error)
+    ));
     apiCallMaker = undefined;
     return response;
   } catch (error) {
-    console.error(error.error);
+    console.error(JSON.stringify(error));
+    console.error(error.message);
     return {};
   }
 };
@@ -67,8 +70,8 @@ let deleteAndAddProducts = async () => {
   console.log('deleteAndAddProducts');
   await deleteLiliHebrewProducts();
   await deleteLiliEnglishProducts();
-  // await addLiliHebrewProducts();
-  // await addLiliEnglishProducts();
+  await addLiliHebrewProducts();
+  await addLiliEnglishProducts();
 }
 
 let deleteLiliHebrewCategories = async () => {
@@ -287,7 +290,142 @@ let addLiliAttributes = async (lang, wooSite) => {
 
 let addLiliProducts = async (lang, wooSite) => {
   console.log('addLiliProducts');
+  let categories = await new Promise(async resolve => {
+    let page = 1;
+    let categoryObject = {};
+    do {
+      let categoryResponse = await makePromiseCalls('OLD', 'get', 'products/categories', {per_page: 100, page, lang});
+      if (categoryResponse.length === 0) {
+        break;
+      }
+      for (let x = 0; x < categoryResponse.length; x++) {
+        categoryObject[categoryResponse[x].id] = {
+          name: categoryResponse[x].name,
+          description: categoryResponse[x].description,
+          slug: categoryResponse[x].slug,
+          old_id: categoryResponse[x].id
+        }
+      }
+      page = page + 1;
+    } while (true);
+    page = 1;
+    do {
+      let categoryResponse = await makePromiseCalls(wooSite, 'get', 'products/categories', {per_page: 100, page, lang});
+      if (categoryResponse.length === 0) {
+        break;
+      }
+      for (let x = 0; x < categoryResponse.length; x++) {
+        for (let category in categoryObject) {
+          if (categoryObject[category].slug === categoryResponse[x].slug) {
+            categoryObject[category].new_id = categoryResponse[x].id;
+            break;
+          }
+        }
+      }
+      page = page + 1;
+    } while (true);
+    resolve(categoryObject);
+  });
 
+  let attributes = await new Promise(async resolve => {
+    let attributeObject = {};
+    let attributeResponse = await makePromiseCalls('OLD', 'get', 'products/attributes', {lang});
+    for (let x = 0; x < attributeResponse.length; x++) {
+      attributeObject[attributeResponse[x].id] = {
+        name: attributeResponse[x].name,
+        slug: attributeResponse[x].slug,
+        old_id: attributeResponse[x].id
+      }
+    }
+    let newAttributeResponse = await makePromiseCalls(wooSite, 'get', 'products/attributes', {lang});
+    for (let x = 0; x < newAttributeResponse.length; x++) {
+      for (let attribute in attributeObject) {
+        if (attributeObject[attribute].name === newAttributeResponse[x].name) {
+          attributeObject[attribute].new_id = newAttributeResponse[x].id;
+          break;
+        }
+      }
+    }
+    resolve(attributeObject);
+  });
+  await new Promise(async resolve => {
+    let page = 1;
+    do {
+      let productResponse = await makePromiseCalls('OLD', 'get', 'products', {per_page: 20, page, lang});
+      if (productResponse.length === 0) {
+        break;
+      }
+      let productObject = {}, productVariationObject = {};
+      for (let x = 0; x < productResponse.length; x++) {
+        let prod = productResponse[x];
+        let oldProductId = productResponse[x].id;
+        productObject[oldProductId] = {
+          name: prod.name,
+          type: prod.type,
+          status: prod.status,
+          regular_price: prod.regular_price,
+          tax_status: prod.tax_status,
+          tax_class: prod.tax_class,
+          manage_stock: prod.manage_stock,
+          stock_quantity: prod.stock_quantity,
+          stock_status: prod.stock_status,
+          categories: productResponse[x].categories.map(d => {
+            return {
+              id: categories[d.id].new_id
+            }
+          }),
+          images: productResponse[x].images.map(d => {
+            delete d.id;
+            return d;
+          }),
+          attributes: productResponse[x].attributes.map(d => {
+            d.id = attributes[d.id].new_id;
+            return d;
+          })
+        }
+        if (prod.type === 'variable') {
+          let productVariationResponse = await makePromiseCalls('OLD', 'get', 'products/' + oldProductId + '/variations', {
+            per_page: 100,
+            lang
+          });
+          productVariationObject[oldProductId] = {};
+          productVariationObject[oldProductId] = productVariationResponse.map(variation => {
+            return {
+              regular_price: variation.regular_price,
+              tax_status: variation.tax_status,
+              tax_class: variation.tax_class,
+              manage_stock: variation.manage_stock,
+              stock_quantity: variation.stock_quantity,
+              stock_status: variation.stock_status,
+              attributes: variation.attributes.map(d => {
+                d.id = attributes[d.id].new_id;
+                return d;
+              })
+            }
+          });
+        }
+      }
+      let createProductObject = Object.keys(productObject).map(d => {
+        return productObject[d];
+      });
+      let batchCreateProductResponse = await makePromiseCalls(wooSite, 'post', 'products/batch', {
+        create: createProductObject
+      })
+      if (batchCreateProductResponse.create.length > 0) {
+        let productIds = Object.keys(productObject);
+        let newProducts = batchCreateProductResponse.create;
+        for (let x = 0; x < newProducts.length; x++) {
+          if (productVariationObject[productIds[x]] !== undefined) {
+            await makePromiseCalls(wooSite, 'post', 'products/' + newProducts[x].id + '/variations/batch', {
+              create: productVariationObject[productIds[x]]
+            });
+          }
+        }
+      }
+      page = page + 1;
+    } while (true);
+    resolve();
+  })
 }
 (async () => {
   await deleteAndAddProducts();
